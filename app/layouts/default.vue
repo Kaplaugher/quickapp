@@ -42,17 +42,28 @@ watch(loggedIn, () => {
 
 const { groups } = useChats(chats)
 
-const items = computed(() => groups.value?.flatMap((group) => {
-  return [{
-    label: group.label,
-    type: 'label' as const
-  }, ...group.items.map(item => ({
-    ...item,
-    slot: 'chat' as const,
-    icon: undefined,
-    class: item.label === 'Untitled' ? 'text-muted' : ''
-  }))]
-}))
+const items = computed(() => {
+  const chatItems = groups.value?.flatMap((group) => {
+    return [{
+      label: group.label,
+      type: 'label' as const
+    }, ...group.items.map(item => ({
+      ...item,
+      slot: 'chat' as const,
+      icon: undefined,
+      class: item.label === 'Untitled' ? 'text-muted' : ''
+    }))]
+  }) || []
+
+  return [
+    ...chatItems,
+    {
+      label: 'Resumes',
+      icon: 'i-lucide-file-text',
+      to: '/resumes'
+    }
+  ]
+})
 
 async function deleteChat(id: string) {
   const instance = deleteModal.open()

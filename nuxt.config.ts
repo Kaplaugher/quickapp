@@ -20,6 +20,11 @@ export default defineNuxtConfig({
       shikiEngine: 'javascript'
     }
   },
+  runtimeConfig: {
+    public: {
+      googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    }
+  },
 
   future: {
     compatibilityVersion: 4
@@ -39,7 +44,8 @@ export default defineNuxtConfig({
 
   hub: {
     ai: true,
-    database: true
+    database: true,
+    blob: true
   },
 
   eslint: {
