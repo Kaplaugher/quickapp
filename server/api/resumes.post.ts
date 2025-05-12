@@ -15,7 +15,7 @@ export default eventHandler(async (event) => {
   }
 
   try {
-    console.log('API: Attempting hubBlob().handleUpload with formKey: \'files\', multiple: true, and validation...')
+    console.log(`API: Attempting hubBlob().handleUpload with formKey: 'files', multiple: true, prefix: resumes/${userId}/, and validation...`)
     // Use handleUpload for simplified file handling
     const blobs = await hubBlob().handleUpload(event, {
       // ---> Changed to 'files' based on examples and hypothesis <---
@@ -30,7 +30,7 @@ export default eventHandler(async (event) => {
       // Options for storing the blob
       put: {
         // Store files under a 'resumes/' prefix
-        prefix: 'resumes',
+        prefix: `resumes/${userId}/`,
         // Keep the original filename, don't add a random suffix
         addRandomSuffix: false,
         // Add user-specific metadata
