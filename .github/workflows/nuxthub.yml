@@ -31,12 +31,10 @@ jobs:
         run: pnpx nuxthub@latest ensure
 
       - name: Build application
-        env:
-          NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
         run: pnpm build
 
       - name: Deploy to NuxtHub
         uses: nuxt-hub/action@v1
         id: deploy
         with:
-          project-key: quickapp-buxi
+          project-key: quickapp-rspy
