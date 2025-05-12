@@ -115,7 +115,9 @@
                   color="error"
                   variant="ghost"
                   aria-label="Delete"
-                  disabled
+                  :loading="deletingState[resume.pathname]"
+                  :disabled="!!deletingState[resume.pathname] || uploading"
+                  @click="confirmDeleteResume(resume.pathname)"
                 />
               </div>
             </li>
@@ -142,6 +144,9 @@ const toast = useToast()
 const file = ref<File | null>(null)
 const uploading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+
+// Add state to track deletion status per item
+const deletingState = ref<Record<string, boolean>>({})
 
 // Fetch the list of resumes
 const { data: resumes, pending, error, refresh } = useFetch<ResumeBlobObject[]>('/api/resumes', {
@@ -229,6 +234,43 @@ async function onFileChange(event: Event) {
 function openFilePicker() {
   if (uploading.value) return
   fileInput.value?.click()
+}
+
+// Function to initiate deletion with confirmation
+function confirmDeleteResume(pathname: string) {
+  // Basic confirmation, consider a modal for better UX
+  if (confirm(`Are you sure you want to delete ${getFileName(pathname)}?`)) {
+    deleteResume(pathname)
+  }
+}
+
+// Function to perform the actual deletion
+async function deleteResume(pathname: string) {
+  if (!pathname) return
+
+  // Set loading state for this specific item
+  deletingState.value[pathname] = true
+
+  try {
+    await $fetch(`/api/resumes/${pathname}`, { // Use template literal for dynamic URL
+      method: 'DELETE'
+    })
+
+    toast.add({ title: 'Resume deleted', icon: 'i-heroicons-check-circle' })
+    await refresh() // Refresh the list
+  } catch (error) {
+    console.error(`Error deleting resume ${pathname}:`, error)
+    let description = 'Could not delete resume.'
+    if (error && typeof error === 'object' && 'data' in error && error.data && typeof error.data === 'object' && 'message' in error.data) {
+      description = String(error.data.message)
+    } else if (error instanceof Error) {
+      description = error.message
+    }
+    toast.add({ title: 'Deletion failed', description, color: 'error' })
+  } finally {
+    // Reset loading state for this item
+    deletingState.value[pathname] = false
+  }
 }
 </script>
 
