@@ -9,7 +9,7 @@
       <UCard>
         <template #header>
           <h3 class="text-lg font-semibold">
-            Upload Resume
+            Upload Resume YO
           </h3>
         </template>
 
