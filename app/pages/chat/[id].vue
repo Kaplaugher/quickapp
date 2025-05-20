@@ -11,7 +11,6 @@ const components = {
 const route = useRoute()
 const toast = useToast()
 const clipboard = useClipboard()
-const { model } = useLLM()
 
 const { data: chat } = await useFetch(`/api/chats/${route.params.id}`, {
   cache: 'force-cache'
@@ -28,9 +27,7 @@ const { messages, input, handleSubmit, reload, stop, status, error } = useChat({
     content: message.content,
     role: message.role
   })),
-  body: {
-    model: model.value
-  },
+
   onResponse(response) {
     if (response.headers.get('X-Chat-Title')) {
       refreshNuxtData('chats')
@@ -105,10 +102,6 @@ onMounted(() => {
             @stop="stop"
             @reload="reload"
           />
-
-          <template #footer>
-            <ModelSelect v-model="model" />
-          </template>
         </UChatPrompt>
       </UContainer>
     </template>

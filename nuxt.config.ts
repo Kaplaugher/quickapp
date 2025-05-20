@@ -21,8 +21,9 @@ export default defineNuxtConfig({
     }
   },
   runtimeConfig: {
+    googleAiApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     public: {
-      googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY
+      // googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY // Removed from public
     }
   },
 
