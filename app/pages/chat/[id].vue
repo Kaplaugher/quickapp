@@ -4,6 +4,25 @@ import { useChat, type Message } from '@ai-sdk/vue'
 import { useClipboard } from '@vueuse/core'
 import ProseStreamPre from '../../components/prose/PreStream.vue'
 
+// Define the Attachment type based on AI SDK expectations
+interface Attachment {
+  name?: string
+  contentType?: string
+  url: string // URL is required by the SDK's type
+  content?: Uint8Array | string // Provide content directly for robustness
+}
+
+// Helper function to convert ArrayBuffer to Base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i] as number)
+  }
+  return btoa(binary)
+}
+
 const components = {
   pre: ProseStreamPre as unknown as DefineComponent
 }
@@ -11,6 +30,17 @@ const components = {
 const route = useRoute()
 const toast = useToast()
 const clipboard = useClipboard()
+
+const selectedFileForAttachment = ref<File | null>(null)
+
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files[0]) {
+    selectedFileForAttachment.value = target.files[0]
+  } else {
+    selectedFileForAttachment.value = null
+  }
+}
 
 const { data: chat } = await useFetch(`/api/chats/${route.params.id}`, {
   cache: 'force-cache'
@@ -56,6 +86,43 @@ function copy(e: MouseEvent, message: Message) {
   }, 2000)
 }
 
+async function submitMessage(event: Event | undefined) {
+  let attachmentsForSubmit: Attachment[] | undefined
+
+  if (selectedFileForAttachment.value) {
+    try {
+      const file = selectedFileForAttachment.value
+      const fileContentArrayBuffer = await file.arrayBuffer()
+      const fileContentUint8Array = new Uint8Array(fileContentArrayBuffer)
+      const base64String = arrayBufferToBase64(fileContentArrayBuffer)
+      const dataUrl = `data:${file.type};base64,${base64String}`
+
+      attachmentsForSubmit = [{
+        name: file.name,
+        contentType: file.type,
+        url: dataUrl,
+        content: fileContentUint8Array
+      }]
+    } catch (e) {
+      console.error('Error processing file:', e)
+      toast.add({
+        title: 'Error Processing File',
+        description: 'Could not process the selected file.',
+        icon: 'i-lucide-alert-circle',
+        color: 'error'
+      })
+      return // Stop submission if file can't be processed
+    }
+  }
+
+  await handleSubmit(event, {
+    experimental_attachments: attachmentsForSubmit
+  })
+
+  // Reset file input and selection
+  selectedFileForAttachment.value = null
+}
+
 onMounted(() => {
   if (chat.value?.messages.length === 1) {
     reload()
@@ -94,7 +161,18 @@ onMounted(() => {
           :error="error"
           variant="subtle"
           class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10"
-          @submit="handleSubmit"
+          placeholder="Type a message..."
+          autofocus
+          :autofocus-delay="100"
+          autoresize
+          :autoresize-delay="100"
+          :rows="1"
+          :maxrows="5"
+          icon="i-heroicons-chat-bubble-left-right"
+          :loading="status === 'streaming' || status === 'submitted'"
+          loading-icon="i-heroicons-arrow-path"
+          :avatar="{ src: '', alt: 'User' }"
+          @submit="submitMessage"
         >
           <UChatPromptSubmit
             :status="status"
@@ -102,6 +180,14 @@ onMounted(() => {
             @stop="stop"
             @reload="reload"
           />
+          <template #footer>
+            <UInput
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.md"
+              class="mt-2"
+              @change="handleFileChange"
+            />
+          </template>
         </UChatPrompt>
       </UContainer>
     </template>

@@ -16,7 +16,8 @@ export const users = sqliteTable('users', {
 ])
 
 export const usersRelations = relations(users, ({ many }) => ({
-  chats: many(chats)
+  chats: many(chats),
+  resumes: many(resumes)
 }))
 
 export const chats = sqliteTable('chats', {
@@ -50,5 +51,27 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   chat: one(chats, {
     fields: [messages.chatId],
     references: [chats.id]
+  })
+}))
+
+export const resumes = sqliteTable('resumes', {
+  id: text().primaryKey().$defaultFn(() => randomUUID()),
+  userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  fileName: text().notNull(),
+  r2Key: text().notNull().unique(),
+  contentType: text().notNull(),
+  fileSize: integer().notNull(),
+  parsedContent: text(),
+  title: text(),
+  createdAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' }).default(sql`(unixepoch())`)
+}, table => ({
+  userIdx: index('resume_userId_idx').on(table.userId)
+}))
+
+export const resumesRelations = relations(resumes, ({ one }) => ({
+  user: one(users, {
+    fields: [resumes.userId],
+    references: [users.id]
   })
 }))

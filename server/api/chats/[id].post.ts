@@ -13,7 +13,8 @@ export default defineEventHandler(async (event) => {
 
   const { id } = getRouterParams(event)
   // TODO: Use readValidatedBody
-  const { model: modelId, messages } = await readBody(event)
+  const { model: modelId, messages, data } = await readBody(event)
+  const resumeId = data?.resumeId
 
   const db = useDrizzle()
 
@@ -23,6 +24,31 @@ export default defineEventHandler(async (event) => {
   const google = createGoogleGenerativeAI({
     apiKey
   })
+
+  interface MessageContentPart {
+    type: 'text' | 'image' | 'file' | 'tool-call' | 'tool-result' // Added more general types from Vercel AI SDK
+    text?: string
+    toolCallId?: string
+    toolName?: string
+    args?: unknown
+    result?: unknown
+    // Add other part-specific properties like 'url' for images/files if applicable
+  }
+
+  let resumeContent: string | undefined
+  if (resumeId) {
+    const resumeResult = await db.select({
+      id: tables.resumes.id,
+      content: tables.resumes.content
+    })
+      .from(tables.resumes)
+      .where(eq(tables.resumes.id, resumeId as string))
+      .limit(1)
+
+    if (resumeResult.length > 0) {
+      resumeContent = resumeResult[0].content
+    }
+  }
 
   const chat = await db.query.chats.findFirst({
     where: (chat, { eq }) => and(eq(chat.id, id as string), eq(chat.userId, session.user?.id || session.id)),
@@ -56,17 +82,42 @@ export default defineEventHandler(async (event) => {
 
   const lastMessage = messages[messages.length - 1]
   if (lastMessage.role === 'user' && messages.length > 1) {
-    await db.insert(tables.messages).values({
-      chatId: id as string,
-      role: 'user',
-      content: lastMessage.content
-    })
+    // The Vercel AI SDK sends attachments as part of the content array.
+    // We need to extract the text part to save to the database.
+    let userContent = ''
+    if (Array.isArray(lastMessage.content)) {
+      const textPart = lastMessage.content.find((part: MessageContentPart) => part.type === 'text')
+      if (textPart && textPart.text) {
+        userContent = textPart.text
+      }
+    } else {
+      userContent = lastMessage.content
+    }
+
+    if (userContent) {
+      await db.insert(tables.messages).values({
+        chatId: id as string,
+        role: 'user',
+        content: userContent
+      })
+    }
+  }
+
+  // Construct the system prompt, including resume context if available
+  let systemPrompt = 'You are a helpful assistant that can answer questions and help.'
+  if (resumeContent) {
+    systemPrompt += `\n\nThe user has provided the following resume. Please use it to inform your answers if relevant:\n\n<resume_content>
+${resumeContent}
+</resume_content>`
+  }
+  if (resumeId && !resumeContent) {
+    systemPrompt += '\n\nNote: The user attempted to provide a resume, but it could not be loaded. You can inform the user if their query seems to relate to a resume.'
   }
 
   return streamText({
-    model: google(modelId || 'gemini-2.0-flash'),
+    model: google(modelId || 'gemini-1.5-flash-latest'), // Updated to a newer model that is more likely to support multimodal inputs if the SDK handles it.
     maxTokens: 10000,
-    system: 'You are a helpful assistant that can answer questions and help.',
+    system: systemPrompt,
     messages,
     async onFinish(response) {
       await db.insert(tables.messages).values({

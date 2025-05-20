@@ -53,10 +53,6 @@ const quickChats = [
           @submit="onSubmit"
         >
           <UChatPromptSubmit color="neutral" />
-
-          <template #footer>
-            <ResumeSelect />
-          </template>
         </UChatPrompt>
 
         <div class="flex flex-wrap gap-2">
